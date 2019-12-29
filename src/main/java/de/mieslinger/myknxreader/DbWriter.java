@@ -34,6 +34,8 @@ public class DbWriter implements Runnable {
     private DatapointModel<StateDP> datapoints;
     private PreparedStatement checkTableExists;
     private PreparedStatement createTable;
+    private PreparedStatement insertLog;
+    private PreparedStatement cleanupLog;
     private PreparedStatement insertData;
 
     private final static Logger logger = LoggerFactory.getLogger(DbWriter.class);
@@ -94,12 +96,57 @@ public class DbWriter implements Runnable {
         }
 
         tryAndReconnect();
+        checkAndCreateLogTable(kev);
+        checkAndCreateDataTable(kev);
+    }
 
-        checkAndCreateTable(kev);
+    private void checkAndCreateLogTable(KNXEvent e) {
+        // select 1 from table name
+        try {
+            checkTableExists = conn.prepareStatement("select 1 from knx_log");
+            checkTableExists.execute();
+        } catch (Exception ex) {
+            // -> Exception -> create table
+            logger.info("Table knx_log does not exist, creating");
+            try {
+                createTable = conn.prepareStatement("create table knx_log ("
+                        + "ts timestamp NOT NULL DEFAULT current_timestamp(),"
+                        + "src_addr varchar(16) not null,"
+                        + "dst_addr varchar(16) not null,"
+                        + "dst_desc varchar(4000)"
+                        + "dpt varchar(10) not null"
+                        + "value double not null,"
+                        + "primary key (ts)"
+                        + ")");
+                createTable.executeUpdate();
+                logger.info("created table knx_log");
+            } catch (Exception exc) {
+                logger.warn("unexpected exception during create table knx_log: {}", exc.getMessage());
+                exc.printStackTrace();
+            }
+        }
+
+        // -> do insert
+        try {
+            insertLog = conn.prepareStatement("insert into knx_log (ts, src_addr, dst_addr, dst_desc, dpt, value) values (?,?,?,?,?,?)");
+            Timestamp sqlTs = new Timestamp(e.getTs().toEpochSecond(ZoneOffset.UTC) * 1000);
+            insertLog.setTimestamp(1, sqlTs);
+            insertLog.setString(2,e.getEv().getSourceAddr().toString());
+            insertLog.setString(3,e.getEv().getDestination().toString());
+            insertLog.setString(4,datapoints.get(e.getEv().getDestination()).getName());
+            insertLog.setString(5,datapoints.get(e.getEv().getDestination()).getDPT());
+            insertLog.setDouble(6, e.getNumericValue());
+            insertLog.execute();
+            cleanupLog = conn.prepareStatement("delete from knx_log where ts < date_sub(now(), interval  3 month)");
+            
+        } catch (Exception ex) {
+            logger.warn("unexpected exception during insert data: {}", ex.getMessage());
+            ex.printStackTrace();
+        }
 
     }
 
-    private void checkAndCreateTable(KNXEvent e) {
+    private void checkAndCreateDataTable(KNXEvent e) {
         // generate table name
 
         // GA DPT
@@ -126,7 +173,7 @@ public class DbWriter implements Runnable {
                 createTable.executeUpdate();
                 logger.info("created table {}", tableName);
             } catch (Exception exc) {
-                logger.warn("unexpected exception during create table: {}", exc.getMessage());
+                logger.warn("unexpected exception during create table {}: {}", tableName, exc.getMessage());
                 exc.printStackTrace();
             }
         }
@@ -139,7 +186,7 @@ public class DbWriter implements Runnable {
             insertData.setDouble(2, e.getNumericValue());
             insertData.execute();
         } catch (Exception ex) {
-            logger.warn("unexpected exception during insert data: {}", ex.getMessage());
+            logger.warn("unexpected exception during insert data into {}: {}", tableName, ex.getMessage());
             ex.printStackTrace();
         }
     }
