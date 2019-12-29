@@ -131,14 +131,14 @@ public class DbWriter implements Runnable {
             insertLog = conn.prepareStatement("insert into knx_log (ts, src_addr, dst_addr, dst_desc, dpt, value) values (?,?,?,?,?,?)");
             Timestamp sqlTs = new Timestamp(e.getTs().toEpochSecond(ZoneOffset.UTC) * 1000);
             insertLog.setTimestamp(1, sqlTs);
-            insertLog.setString(2,e.getEv().getSourceAddr().toString());
-            insertLog.setString(3,e.getEv().getDestination().toString());
-            insertLog.setString(4,datapoints.get(e.getEv().getDestination()).getName());
-            insertLog.setString(5,datapoints.get(e.getEv().getDestination()).getDPT());
+            insertLog.setString(2, e.getEv().getSourceAddr().toString());
+            insertLog.setString(3, e.getEv().getDestination().toString());
+            insertLog.setString(4, datapoints.get(e.getEv().getDestination()).getName());
+            insertLog.setString(5, datapoints.get(e.getEv().getDestination()).getDPT());
             insertLog.setDouble(6, e.getNumericValue());
             insertLog.execute();
             cleanupLog = conn.prepareStatement("delete from knx_log where ts < date_sub(now(), interval  3 month)");
-            
+
         } catch (Exception ex) {
             logger.warn("unexpected exception during insert data: {}", ex.getMessage());
             ex.printStackTrace();
@@ -155,6 +155,16 @@ public class DbWriter implements Runnable {
         GroupAddress ga = e.getEv().getDestination();
         StateDP dp = datapoints.get(ga);
         String dpt = dp.getDPT();
+
+        // filter DPT. Do not record typical on/off events (lights/rollershutter/...)
+        if (dpt.startsWith("2")) {
+            logger.info("ignoring event from {} to GA {} ({}), DPT {}", e.getEv().getSourceAddr().toString(),
+                    e.getEv().getDestination().toString(),
+                    datapoints.get(e.getEv().getDestination()).getName(),
+                    datapoints.get(e.getEv().getDestination()).getDPT());
+            return;
+        }
+
         String tableName = "data_" + ga.toString().replace('/', '_') + "_" + dpt.replace('.', '_');
 
         // select 1 from table name
