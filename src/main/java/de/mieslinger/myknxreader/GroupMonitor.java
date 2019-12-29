@@ -57,50 +57,53 @@ public class GroupMonitor implements ProcessListener, Runnable {
     private ConcurrentLinkedQueue<KNXEvent> queue;
     private DatapointModel<StateDP> datapoints;
     private final static Logger logger = LoggerFactory.getLogger(GroupMonitor.class);
-
+    
     private GroupMonitor() {
-
+        
     }
-
+    
     public GroupMonitor(String remoteHost, ConcurrentLinkedQueue<KNXEvent> queue, DatapointModel<StateDP> datapoints) {
         this.remoteHost = remoteHost;
         this.queue = queue;
         this.datapoints = datapoints;
         logger.info("Monitoring KNX network using KNXnet/IP server " + remoteHost + " instantiated");
     }
-
+    
     public void run() {
         final InetSocketAddress remote = new InetSocketAddress(remoteHost, 3671);
-        try (KNXNetworkLink knxLink = KNXNetworkLinkIP.newTunnelingLink(null, remote, false, TPSettings.TP1);
-                ProcessCommunicator pc = new ProcessCommunicatorImpl(knxLink)) {
+        while (true) {
+            try (KNXNetworkLink knxLink = KNXNetworkLinkIP.newTunnelingLink(null, remote, false, TPSettings.TP1);
+                    ProcessCommunicator pc = new ProcessCommunicatorImpl(knxLink)) {
 
-            // start listening to group notifications using a process listener
-            pc.addProcessListener(this);
-            logger.info("Monitoring KNX network using KNXnet/IP server " + remoteHost + " running");
-            while (knxLink.isOpen()) {
-                Thread.sleep(1000);
+                // start listening to group notifications using a process listener
+                pc.addProcessListener(this);
+                logger.info("Monitoring KNX network using KNXnet/IP server " + remoteHost + " running");
+                while (knxLink.isOpen()) {
+                    Thread.sleep(1000);
+                }
+                knxLink.close();
+            } catch (final KNXException | InterruptedException | RuntimeException e) {
+                logger.warn("KNX Monitor Exception: ", e);
             }
-            knxLink.close();
-        } catch (final KNXException | InterruptedException | RuntimeException e) {
-            logger.warn("KNX Monitor Exception: ", e);
+            logger.info("restarted KNX ProcessCommunicator");
         }
     }
-
+    
     @Override
     public void groupWrite(final ProcessEvent e) {
         trace(KNXEventEnum.groupWrite, e);
     }
-
+    
     @Override
     public void groupReadRequest(final ProcessEvent e) {
         trace(KNXEventEnum.groupReadRequest, e);
     }
-
+    
     @Override
     public void groupReadResponse(final ProcessEvent e) {
         trace(KNXEventEnum.groupReadResponse, e);
     }
-
+    
     @Override
     public void detached(final DetachEvent e) {
     }
@@ -109,7 +112,7 @@ public class GroupMonitor implements ProcessListener, Runnable {
     // KNX source and destination address, and Application Service Data Unit (ASDU) to System.out.
     private void trace(final KNXEventEnum evType, final ProcessEvent e) {
         try {
-
+            
             queue.add(new KNXEvent(evType, e, datapoints));
         } catch (final RuntimeException ex) {
             logger.warn("KNX Monitor: ", ex);
