@@ -8,8 +8,6 @@ package de.mieslinger.myknxreader;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
-import java.sql.Timestamp;
-import java.time.ZoneOffset;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -139,7 +137,7 @@ public class DbWriter implements Runnable {
             insertLog.setDouble(6, e.getNumericValue());
             insertLog.execute();
             cleanupLog = conn.prepareStatement("delete from knx_log where ts < date_sub(now(), interval  3 month)");
-
+            cleanupLog.executeUpdate();
         } catch (Exception ex) {
             logger.warn("unexpected exception during insert data: {}", ex.getMessage());
             ex.printStackTrace();
