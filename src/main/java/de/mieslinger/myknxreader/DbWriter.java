@@ -113,10 +113,12 @@ public class DbWriter implements Runnable {
                         + "ts timestamp NOT NULL DEFAULT current_timestamp(),"
                         + "src_addr varchar(16) not null,"
                         + "dst_addr varchar(16) not null,"
-                        + "dst_desc varchar(4000)"
-                        + "dpt varchar(10) not null"
+                        + "dst_desc varchar(4000),"
+                        + "dpt varchar(10) not null,"
                         + "value double not null,"
-                        + "primary key (ts)"
+                        + "key (ts),"
+                        + "key (src_addr),"
+                        + "key (dst_addr)"
                         + ")");
                 createTable.executeUpdate();
                 logger.info("created table knx_log");
@@ -129,8 +131,7 @@ public class DbWriter implements Runnable {
         // -> do insert
         try {
             insertLog = conn.prepareStatement("insert into knx_log (ts, src_addr, dst_addr, dst_desc, dpt, value) values (?,?,?,?,?,?)");
-            Timestamp sqlTs = new Timestamp(e.getTs().toEpochSecond(ZoneOffset.UTC) * 1000);
-            insertLog.setTimestamp(1, sqlTs);
+            insertLog.setTimestamp(1, e.getSqlTs());
             insertLog.setString(2, e.getEv().getSourceAddr().toString());
             insertLog.setString(3, e.getEv().getDestination().toString());
             insertLog.setString(4, datapoints.get(e.getEv().getDestination()).getName());
@@ -191,8 +192,7 @@ public class DbWriter implements Runnable {
         // -> do insert
         try {
             insertData = conn.prepareStatement("insert into " + tableName + " (ts,value) values (?,?)");
-            Timestamp sqlTs = new Timestamp(e.getTs().toEpochSecond(ZoneOffset.UTC) * 1000);
-            insertData.setTimestamp(1, sqlTs);
+            insertData.setTimestamp(1, e.getSqlTs());
             insertData.setDouble(2, e.getNumericValue());
             insertData.execute();
         } catch (Exception ex) {
