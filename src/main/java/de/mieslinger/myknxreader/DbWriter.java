@@ -119,6 +119,7 @@ public class DbWriter implements Runnable {
                         + "key (dst_addr)"
                         + ")");
                 createTable.executeUpdate();
+                createTable.close();
                 logger.info("created table knx_log");
             } catch (Exception exc) {
                 logger.warn("unexpected exception during create table knx_log: {}", exc.getMessage());
@@ -136,8 +137,10 @@ public class DbWriter implements Runnable {
             insertLog.setString(5, datapoints.get(e.getEv().getDestination()).getDPT());
             insertLog.setDouble(6, e.getNumericValue());
             insertLog.execute();
+            insertLog.close();
             cleanupLog = conn.prepareStatement("delete from knx_log where ts < date_sub(now(), interval  3 month)");
             cleanupLog.executeUpdate();
+            cleanupLog.close();
         } catch (Exception ex) {
             logger.warn("unexpected exception during insert data: {}", ex.getMessage());
             ex.printStackTrace();
@@ -180,6 +183,7 @@ public class DbWriter implements Runnable {
                         + "primary key (ts)"
                         + ")");
                 createTable.executeUpdate();
+                createTable.close();
                 logger.info("created table {}", tableName);
             } catch (Exception exc) {
                 logger.warn("unexpected exception during create table {}: {}", tableName, exc.getMessage());
@@ -193,6 +197,7 @@ public class DbWriter implements Runnable {
             insertData.setTimestamp(1, e.getSqlTs());
             insertData.setDouble(2, e.getNumericValue());
             insertData.execute();
+            insertData.close();
         } catch (Exception ex) {
             logger.warn("unexpected exception during insert data into {}: {}", tableName, ex.getMessage());
             ex.printStackTrace();
