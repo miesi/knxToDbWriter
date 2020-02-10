@@ -103,6 +103,7 @@ public class DbWriter implements Runnable {
         try {
             checkTableExists = conn.prepareStatement("select 1 from knx_log");
             checkTableExists.execute();
+            checkTableExists.close();
         } catch (Exception ex) {
             // -> Exception -> create table
             logger.info("Table knx_log does not exist, creating");
