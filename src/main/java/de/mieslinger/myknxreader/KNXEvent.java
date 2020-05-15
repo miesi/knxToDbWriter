@@ -27,7 +27,10 @@ import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import tuwien.auto.calimero.GroupAddress;
+import tuwien.auto.calimero.IndividualAddress;
 import tuwien.auto.calimero.KNXException;
 import tuwien.auto.calimero.KNXFormatException;
 import tuwien.auto.calimero.datapoint.Datapoint;
@@ -53,6 +56,7 @@ public class KNXEvent {
     private boolean isBoolean = false;
     private boolean isInteger = false;
     private boolean isFloat = false;
+    private static final Logger logger = LoggerFactory.getLogger(KNXEvent.class);
 
     private KNXEvent() {
     }
@@ -65,6 +69,9 @@ public class KNXEvent {
         this.d = e.getDestination();
         this.dp = datapoints.get(e.getDestination());
         this.asdu = e.getASDU();
+        if (dp.getMainNumber() == 1) {
+            isBoolean = true;
+        }
     }
 
     public KNXEventEnum getEvType() {
@@ -93,9 +100,13 @@ public class KNXEvent {
      * available
      */
     public String asString() throws KNXException {
-        final DPTXlator t = TranslatorTypes.createTranslator(0, dp.getDPT());
-        t.setData(asdu);
-        return t.getValue();
+        if (isBoolean) {
+            return asdu.toString();
+        } else {
+            final DPTXlator t = TranslatorTypes.createTranslator(0, dp.getDPT());
+            t.setData(asdu);
+            return t.getValue();
+        }
     }
 
     /**
@@ -106,9 +117,20 @@ public class KNXEvent {
      * @throws KNXFormatException if the value cannot be represented numerically
      */
     public double getNumericValue() throws KNXFormatException, KNXException {
+        double rv = 0;
         final DPTXlator xlt = TranslatorTypes.createTranslator(0, dp.getDPT());
         xlt.setData(asdu);
-        return xlt.getNumericValue();
+        try {
+            rv = xlt.getNumericValue();
+        } catch (Exception e) {
+            IndividualAddress sAddr = ev.getSourceAddr();
+            GroupAddress dAddr = ev.getDestination();
+            String val = toHex(asdu, "");
+            String desc = datapoints.get(dAddr).getName();
+            String dpt = datapoints.get(dAddr).getDPT();
+            logger.warn("{} -> {} ({}): [0x{}], DPT: {}", sAddr, dAddr, desc, val, dpt);
+        }
+        return rv;
     }
 
     public boolean isBoolean() throws KNXFormatException, KNXException, Exception {
@@ -141,5 +163,31 @@ public class KNXEvent {
         ZoneId zone = ZoneId.of("Europe/Berlin");
         ZoneOffset zoneOffSet = zone.getRules().getOffset(ts);
         return new Timestamp(ts.toEpochSecond(zoneOffSet) * 1000);
+    }
+
+    /**
+     * Returns the content of <code>data</code> as unsigned bytes in hexadecimal
+     * string representation.
+     * <p>
+     * This method does not add hexadecimal prefixes (like 0x).
+     *
+     * @param data data array to format
+     * @param sep separator to insert between 2 formatted data bytes,
+     * <code>null</code> or "" for no gap between byte tokens
+     * @return an unsigned hexadecimal string of data
+     */
+    public static String toHex(final byte[] data, final String sep) {
+        final StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < data.length; ++i) {
+            final int no = data[i] & 0xff;
+            if (no < 0x10) {
+                sb.append('0');
+            }
+            sb.append(Integer.toHexString(no));
+            if (sep != null && i < data.length - 1) {
+                sb.append(sep);
+            }
+        }
+        return sb.toString();
     }
 }
