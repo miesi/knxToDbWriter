@@ -29,8 +29,11 @@ import com.opencsv.CSVReader;
 import com.opencsv.CSVReaderBuilder;
 import com.sampullara.cli.Args;
 import com.sampullara.cli.Argument;
+import java.io.FileInputStream;
 import java.io.FileReader;
+import java.io.InputStreamReader;
 import java.io.Reader;
+import java.nio.charset.Charset;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import org.slf4j.Logger;
@@ -64,7 +67,10 @@ public class NewMain {
 
     @Argument(alias = "f", description = "file to read group addresses (csv format)")
     private static String gaFile = "ga.csv";
-
+    
+    @Argument(alias = "cs", description = "Characterset of group addresses file (UTF-8)")
+    private static String characterSetGaFile = "UTF-8";
+    
     // FIXME: implement me!
     @Argument(alias = "d", description = "enable debug")
     private static boolean debug = false;
@@ -97,14 +103,15 @@ public class NewMain {
             String lastMgSeen = "";
             String[] nextLine;
 
-            Reader reader = new FileReader(gaFile);
+            FileInputStream fis = new FileInputStream(gaFile);
+            InputStreamReader isr = new InputStreamReader(fis, Charset.forName(characterSetGaFile));
 
             CSVParser parser = new CSVParserBuilder()
                     .withSeparator(';')
                     .withIgnoreQuotations(false)
                     .build();
 
-            CSVReader csvReader = new CSVReaderBuilder(reader)
+            CSVReader csvReader = new CSVReaderBuilder(isr)
                     .withSkipLines(0)
                     .withCSVParser(parser)
                     .build();
