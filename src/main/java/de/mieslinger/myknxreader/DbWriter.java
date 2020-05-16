@@ -109,7 +109,7 @@ public class DbWriter implements Runnable {
             logger.info("Table knx_log does not exist, creating");
             try {
                 createTable = conn.prepareStatement("create table knx_log ("
-                        + "ts timestamp NOT NULL DEFAULT current_timestamp(),"
+                        + "ts timestamp(6) NOT NULL DEFAULT current_timestamp(),"
                         + "src_addr varchar(16) not null,"
                         + "dst_addr varchar(16) not null,"
                         + "dst_desc varchar(4000),"
@@ -179,7 +179,7 @@ public class DbWriter implements Runnable {
             logger.info("Table {} does not exist, creating", tableName);
             try {
                 createTable = conn.prepareStatement("create table " + tableName + " ("
-                        + "ts timestamp NOT NULL DEFAULT current_timestamp(),"
+                        + "ts timestamp(6) NOT NULL DEFAULT current_timestamp(),"
                         + "value double not null,"
                         + "primary key (ts)"
                         + ")");
