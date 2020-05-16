@@ -106,13 +106,18 @@ public class GroupMonitor implements ProcessListener, Runnable {
     
     @Override
     public void detached(final DetachEvent e) {
+        logger.warn("Detached: " + e.toString());
+        try {
+            Thread.sleep(1000);
+        } catch (Exception ex) {
+            logger.debug("sleep interrupted");
+        }
     }
 
     // Called on every group notification issued by a datapoint on the KNX network. It prints the service primitive,
     // KNX source and destination address, and Application Service Data Unit (ASDU) to System.out.
     private void trace(final KNXEventEnum evType, final ProcessEvent e) {
-        try {
-            
+        try {            
             queue.add(new KNXEvent(evType, e, datapoints));
         } catch (final RuntimeException ex) {
             logger.warn("KNX Monitor: ", ex);
