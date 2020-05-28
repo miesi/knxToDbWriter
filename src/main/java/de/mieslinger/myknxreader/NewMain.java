@@ -67,10 +67,10 @@ public class NewMain {
 
     @Argument(alias = "f", description = "file to read group addresses (csv format)")
     private static String gaFile = "ga.csv";
-    
+
     @Argument(alias = "cs", description = "Characterset of group addresses file (UTF-8)")
     private static String characterSetGaFile = "UTF-8";
-    
+
     // FIXME: implement me!
     @Argument(alias = "d", description = "enable debug")
     private static boolean debug = false;
@@ -131,6 +131,7 @@ public class NewMain {
                     addDP(nextLine[3],
                             lastHgSeen + "-" + lastMgSeen + "-" + nextLine[2] + "-" + nextLine[6],
                             nextLine[7]);
+                    logger.info("added DP: " + nextLine[3] + " ", lastHgSeen + "-" + lastMgSeen + "-" + nextLine[2] + "-" + nextLine[6]);
                 }
             }
 
