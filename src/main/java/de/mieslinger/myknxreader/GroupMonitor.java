@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tuwien.auto.calimero.DetachEvent;
 import tuwien.auto.calimero.KNXException;
+import tuwien.auto.calimero.datapoint.Datapoint;
 import tuwien.auto.calimero.datapoint.DatapointModel;
 import tuwien.auto.calimero.datapoint.StateDP;
 import tuwien.auto.calimero.link.KNXNetworkLink;
@@ -53,31 +54,34 @@ public class GroupMonitor implements ProcessListener, Runnable {
      * Address of your KNXnet/IP server. Replace the host or IP address as
      * necessary.
      */
-    private String remoteHost;
     private ConcurrentLinkedQueue<KNXEvent> queue;
     private DatapointModel<StateDP> datapoints;
     private final static Logger logger = LoggerFactory.getLogger(GroupMonitor.class);
-    
+    private KNXNetworkLink knxLink;
+    private ProcessCommunicator pc;
+    private InetSocketAddress remote;
+
     private GroupMonitor() {
-        
+
     }
-    
+
     public GroupMonitor(String remoteHost, ConcurrentLinkedQueue<KNXEvent> queue, DatapointModel<StateDP> datapoints) {
-        this.remoteHost = remoteHost;
         this.queue = queue;
         this.datapoints = datapoints;
-        logger.info("Monitoring KNX network using KNXnet/IP server " + remoteHost + " instantiated");
+        remote = new InetSocketAddress(remoteHost, 3671);
+        logger.info("GroupMonitor for " + remoteHost + " instantiated");
     }
-    
-    public void run() {
-        final InetSocketAddress remote = new InetSocketAddress(remoteHost, 3671);
-        while (true) {
-            try (KNXNetworkLink knxLink = KNXNetworkLinkIP.newTunnelingLink(null, remote, false, TPSettings.TP1);
-                    ProcessCommunicator pc = new ProcessCommunicatorImpl(knxLink)) {
 
-                // start listening to group notifications using a process listener
+    public void run() {
+
+        logger.info("GroupMonitor begin run()");
+        while (true) {
+            try {
+
+                knxLink = KNXNetworkLinkIP.newTunnelingLink(null, remote, false, TPSettings.TP1);
+                pc = new ProcessCommunicatorImpl(knxLink);
                 pc.addProcessListener(this);
-                logger.info("Monitoring KNX network using KNXnet/IP server " + remoteHost + " running");
+
                 while (knxLink.isOpen()) {
                     Thread.sleep(1000);
                 }
@@ -88,37 +92,37 @@ public class GroupMonitor implements ProcessListener, Runnable {
             logger.info("restarted KNX ProcessCommunicator");
         }
     }
-    
+
     @Override
     public void groupWrite(final ProcessEvent e) {
         trace(KNXEventEnum.groupWrite, e);
     }
-    
+
     @Override
     public void groupReadRequest(final ProcessEvent e) {
         trace(KNXEventEnum.groupReadRequest, e);
     }
-    
+
     @Override
     public void groupReadResponse(final ProcessEvent e) {
         trace(KNXEventEnum.groupReadResponse, e);
     }
-    
+
     @Override
     public void detached(final DetachEvent e) {
-        logger.warn("Detached: " + e.toString());
-        try {
-            Thread.sleep(1000);
-        } catch (Exception ex) {
-            logger.debug("sleep interrupted");
-        }
+        logger.warn("detached event");
     }
 
     // Called on every group notification issued by a datapoint on the KNX network. It prints the service primitive,
     // KNX source and destination address, and Application Service Data Unit (ASDU) to System.out.
     private void trace(final KNXEventEnum evType, final ProcessEvent e) {
-        try {            
-            queue.add(new KNXEvent(evType, e, datapoints));
+        try {
+            Datapoint dp = datapoints.get(e.getDestination());
+            if (dp != null) {
+                queue.add(new KNXEvent(evType, e, datapoints));
+            } else {
+                logger.warn("Message from {} to {} missing in datapoint map, ignoring", e.getSourceAddr(), e.getDestination());
+            }
         } catch (final RuntimeException ex) {
             logger.warn("KNX Monitor: ", ex);
         }
