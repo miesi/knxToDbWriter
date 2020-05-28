@@ -64,13 +64,15 @@ public class KNXEvent {
     public KNXEvent(KNXEventEnum evType, ProcessEvent e, DatapointModel<StateDP> datapoints) {
         this.evType = evType;
         this.ev = e;
-        this.datapoints = datapoints;
         this.ts = LocalDateTime.now();
         this.d = e.getDestination();
-        this.dp = datapoints.get(e.getDestination());
         this.asdu = e.getASDU();
-        
-    /*    
+
+        this.datapoints = datapoints;
+        // TODO: add checking for NULL
+        this.dp = datapoints.get(e.getDestination());
+
+        /*    
      * 1.yyy = boolesch, wie Schalten, Bewegen nach oben/unten, Schritt
      * 2.yyy = 2 x boolesch, z. B. Schalten + Prioritätssteuerung
      * 3.yyy = boolesch + vorzeichenloser 3-Bit-Wert, z. B. Auf-/Abdimmen
@@ -91,8 +93,7 @@ public class KNXEvent {
      * 18.yyy = Szenensteuerung
      * 19.yyy = Uhrzeit + Datum
      * 20.yyy = 8-Bit-Nummerierung,z. B. HLK-Modus („Automatik“, „Komfort“, „Stand-by“, „Sparen“, „Schutz“)
-     */
-        
+         */
         if (dp.getMainNumber() == 1) {
             isBoolean = true;
         }
@@ -186,7 +187,7 @@ public class KNXEvent {
     public Timestamp getSqlTs() {
         ZoneId zone = ZoneId.of("Europe/Berlin");
         ZoneOffset zoneOffSet = zone.getRules().getOffset(ts);
-        return new Timestamp(ts.toEpochSecond(zoneOffSet) * 1000);
+        return new Timestamp(ts.toInstant(zoneOffSet).toEpochMilli());
     }
 
     /**
