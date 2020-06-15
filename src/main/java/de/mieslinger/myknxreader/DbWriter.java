@@ -8,6 +8,7 @@ package de.mieslinger.myknxreader;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,6 +28,7 @@ public class DbWriter implements Runnable {
     private String jdbcUrl;
     private String user;
     private String password;
+    private boolean logTableExists = false;
     private Connection conn;
     private ConcurrentLinkedQueue<KNXEvent> queue;
     private DatapointModel<StateDP> datapoints;
@@ -100,31 +102,37 @@ public class DbWriter implements Runnable {
 
     private void checkAndCreateLogTable(KNXEvent e) {
         // select 1 from table name
-        try {
-            checkTableExists = conn.prepareStatement("select 1 from knx_log");
-            checkTableExists.execute();
-            checkTableExists.close();
-        } catch (Exception ex) {
-            // -> Exception -> create table
-            logger.info("Table knx_log does not exist, creating");
+        if (!logTableExists) {
             try {
-                createTable = conn.prepareStatement("create table knx_log ("
-                        + "ts timestamp(6) NOT NULL DEFAULT current_timestamp(6),"
-                        + "src_addr varchar(16) not null,"
-                        + "dst_addr varchar(16) not null,"
-                        + "dst_desc varchar(4000),"
-                        + "dpt varchar(10) not null,"
-                        + "value double not null,"
-                        + "key (ts),"
-                        + "key (src_addr),"
-                        + "key (dst_addr)"
-                        + ")");
-                createTable.executeUpdate();
-                createTable.close();
-                logger.info("created table knx_log");
-            } catch (Exception exc) {
-                logger.warn("unexpected exception during create table knx_log: {}", exc.getMessage());
-                exc.printStackTrace();
+                checkTableExists = conn.prepareStatement("select 1 from knx_log");
+                checkTableExists.execute();
+                ResultSet rs = checkTableExists.getResultSet();
+                rs.close();
+                checkTableExists.close();
+                logTableExists = true;
+            } catch (Exception ex) {
+                // -> Exception -> create table
+                logger.info("Table knx_log does not exist, creating");
+                try {
+                    createTable = conn.prepareStatement("create table knx_log ("
+                            + "ts timestamp(6) NOT NULL DEFAULT current_timestamp(6),"
+                            + "src_addr varchar(16) not null,"
+                            + "dst_addr varchar(16) not null,"
+                            + "dst_desc varchar(4000),"
+                            + "dpt varchar(10) not null,"
+                            + "value double not null,"
+                            + "key (ts),"
+                            + "key (src_addr),"
+                            + "key (dst_addr)"
+                            + ")");
+                    createTable.executeUpdate();
+                    createTable.close();
+                    logger.info("created table knx_log");
+                    logTableExists = true;
+                } catch (Exception exc) {
+                    logger.warn("unexpected exception during create table knx_log: {}", exc.getMessage());
+                    exc.printStackTrace();
+                }
             }
         }
 
@@ -174,6 +182,9 @@ public class DbWriter implements Runnable {
         try {
             checkTableExists = conn.prepareStatement("select 1 from " + tableName);
             checkTableExists.execute();
+            ResultSet rs = checkTableExists.getResultSet();
+            rs.close();
+            checkTableExists.close();
         } catch (Exception ex) {
             // -> Exception -> create table
             logger.info("Table {} does not exist, creating", tableName);

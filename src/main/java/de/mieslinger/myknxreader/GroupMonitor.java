@@ -86,10 +86,14 @@ public class GroupMonitor implements ProcessListener, Runnable {
                     Thread.sleep(1000);
                 }
                 knxLink.close();
+                logger.warn("knxLink not open anymore, exiting");
+                System.exit(0);
             } catch (final KNXException | InterruptedException | RuntimeException e) {
                 logger.warn("KNX Monitor Exception: ", e);
+                System.exit(0);
             }
-            logger.info("restarted KNX ProcessCommunicator");
+            logger.warn("restarting GroupMonitor by System.exit(0)");
+            System.exit(0);
         }
     }
 
@@ -110,7 +114,8 @@ public class GroupMonitor implements ProcessListener, Runnable {
 
     @Override
     public void detached(final DetachEvent e) {
-        logger.warn("detached event");
+        logger.warn("detached event, exiting");
+        System.exit(0);
     }
 
     // Called on every group notification issued by a datapoint on the KNX network. It prints the service primitive,
