@@ -72,6 +72,7 @@ public class DbWriter implements Runnable {
                     persist(kev);
                 } else {
                     Thread.sleep(5000);
+                    System.gc();
                 }
             } catch (Exception e) {
                 logger.warn("DbWriter Exception: ", e);
