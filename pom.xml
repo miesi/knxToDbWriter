@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>de.mieslinger</groupId>
     <artifactId>MyKnxReader</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>1.1</version>
     <packaging>jar</packaging>
     <dependencies>
         <dependency>
@@ -34,10 +34,10 @@
     </dependencies>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.source>1.8</maven.compiler.source>
-        <maven.compiler.target>1.8</maven.compiler.target>
+        <maven.compiler.source>11</maven.compiler.source>
+        <maven.compiler.target>11</maven.compiler.target>
     </properties>
-     <build>
+    <build>
         <plugins>
             <plugin>
                 <artifactId>maven-assembly-plugin</artifactId>
@@ -58,6 +58,56 @@
                         <goals>
                             <goal>single</goal>
                         </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>de.dentrassi.maven</groupId>
+                <artifactId>rpm</artifactId>
+                <version>1.5.0</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>rpm</goal>
+                        </goals>
+                        <configuration>
+                            <skipSigning>true</skipSigning>
+                            <attach>false</attach> <!-- don't attach RPM -->
+                            <license>MIT</license>
+                            <distribution>No</distribution>
+                            <group>Application/Collectors</group>
+                            <packager>thomas@mieslinger.de</packager>
+                            <prefix>/opt/knx-logger</prefix>
+                            <!--<changelogFile>src/changelog</changelogFile>-->
+                            <requires>
+                                <require>java-headless &gt; 1.8</require>
+                            </requires>
+
+                            <entries>
+                                <entry>
+                                    <name>/usr/lib/systemd/system/knx-logger.service</name>
+                                    <file>src/main/systemd/knx-logger.service</file>
+                                    <user>root</user>
+                                    <group>root</group>
+                                    <mode>0444</mode>
+                                </entry>
+                                <entry>
+                                    <name>/etc/sysconfig/knx-logger</name>
+                                    <file>src/main/sysconfig/knx-logger</file>
+                                    <user>root</user>
+                                    <group>root</group>
+                                    <mode>0444</mode>
+                                    <configuration>true</configuration>
+                                </entry>
+                                <entry>
+                                    <name>/opt/knx-logger/nsrrsetd.jar</name>
+                                    <file>target/knx-logger-${project.version}-jar-with-dependencies.jar</file>
+                                    <user>root</user>
+                                    <group>root</group>
+                                    <mode>0444</mode>
+                                </entry>                
+                            </entries>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>
