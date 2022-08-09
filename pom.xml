@@ -109,7 +109,7 @@
                                 </entry>
                                 <entry>
                                     <name>/opt/knx-logger/knx-logger.jar</name>
-                                    <file>target/knx-logger-${project.version}-jar-with-dependencies.jar</file>
+                                    <file>target/MyKnxReader-${project.version}-jar-with-dependencies.jar</file>
                                     <user>root</user>
                                     <group>root</group>
                                     <mode>0444</mode>
