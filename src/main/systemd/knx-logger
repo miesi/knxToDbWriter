@@ -1,0 +1,9 @@
+# Parameter file for systemd unit
+# still TODO
+# -g 192.168.178.1
+# -j jdbc:mysql://localhost:3306/ZZZZZZ
+# -u YYYYYY
+# -p 'XXXXX'
+# -f /opt/knx-logger/ga.csv
+# -cs ISO-8859-1
+
