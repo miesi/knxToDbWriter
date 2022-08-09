@@ -88,7 +88,7 @@
                             <prefix>/opt/knx-logger</prefix>
                             <!--<changelogFile>src/changelog</changelogFile>-->
                             <requires>
-                                <require>java-headless &gt; 1.8</require>
+                                <require>java-11-openjdk-headless</require>
                             </requires>
 
                             <entries>
@@ -101,14 +101,14 @@
                                 </entry>
                                 <entry>
                                     <name>/etc/sysconfig/knx-logger</name>
-                                    <file>src/main/sysconfig/knx-logger</file>
+                                    <file>src/main/systemd/knx-logger</file>
                                     <user>root</user>
                                     <group>root</group>
                                     <mode>0444</mode>
                                     <configuration>true</configuration>
                                 </entry>
                                 <entry>
-                                    <name>/opt/knx-logger/nsrrsetd.jar</name>
+                                    <name>/opt/knx-logger/knx-logger.jar</name>
                                     <file>target/knx-logger-${project.version}-jar-with-dependencies.jar</file>
                                     <user>root</user>
                                     <group>root</group>
