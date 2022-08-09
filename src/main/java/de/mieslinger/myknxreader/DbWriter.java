@@ -146,7 +146,7 @@ public class DbWriter implements Runnable {
             insertLog.setString(4, datapoints.get(e.getEv().getDestination()).getName());
             insertLog.setString(5, datapoints.get(e.getEv().getDestination()).getDPT());
             insertLog.setDouble(6, e.getNumericValue());
-            insertLog.execute();
+            insertLog.executeUpdate();
             insertLog.close();
             cleanupLog = conn.prepareStatement("delete from knx_log where ts < date_sub(now(), interval  3 month)");
             cleanupLog.executeUpdate();
@@ -209,7 +209,7 @@ public class DbWriter implements Runnable {
             insertData = conn.prepareStatement("insert into " + tableName + " (ts,value) values (?,?)");
             insertData.setTimestamp(1, e.getSqlTs());
             insertData.setDouble(2, e.getNumericValue());
-            insertData.execute();
+            insertData.executeUpdate();
             insertData.close();
         } catch (Exception ex) {
             logger.warn("unexpected exception during insert data into {}: {}", tableName, ex.getMessage());
