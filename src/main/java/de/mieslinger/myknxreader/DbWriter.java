@@ -115,7 +115,8 @@ public class DbWriter implements Runnable {
                 // -> Exception -> create table
                 logger.info("Table knx_log does not exist, creating");
                 try {
-                    createTable = conn.prepareStatement("create table knx_log ("
+                    Connection con = DriverManager.getConnection(jdbcUrl, user, password);
+                    createTable = con.prepareStatement("create table knx_log ("
                             + "ts timestamp(6) NOT NULL DEFAULT current_timestamp(6),"
                             + "src_addr varchar(16) not null,"
                             + "dst_addr varchar(16) not null,"
@@ -129,6 +130,7 @@ public class DbWriter implements Runnable {
                     createTable.executeUpdate();
                     createTable.close();
                     logger.info("created table knx_log");
+                    con.close();
                     logTableExists = true;
                 } catch (Exception exc) {
                     logger.warn("unexpected exception during create table knx_log: {}", exc.getMessage());
@@ -190,13 +192,15 @@ public class DbWriter implements Runnable {
             // -> Exception -> create table
             logger.info("Table {} does not exist, creating", tableName);
             try {
-                createTable = conn.prepareStatement("create table " + tableName + " ("
+                Connection con = DriverManager.getConnection(jdbcUrl, user, password);
+                createTable = con.prepareStatement("create table " + tableName + " ("
                         + "ts timestamp(6) NOT NULL DEFAULT current_timestamp(6),"
                         + "value double not null,"
                         + "primary key (ts)"
                         + ")");
                 createTable.executeUpdate();
                 createTable.close();
+                con.close();
                 logger.info("created table {}", tableName);
             } catch (Exception exc) {
                 logger.warn("unexpected exception during create table {}: {}", tableName, exc.getMessage());
