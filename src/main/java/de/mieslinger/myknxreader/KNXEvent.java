@@ -30,13 +30,21 @@ import java.time.ZoneOffset;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tuwien.auto.calimero.GroupAddress;
-import tuwien.auto.calimero.IndividualAddress;
 import tuwien.auto.calimero.KNXException;
 import tuwien.auto.calimero.KNXFormatException;
 import tuwien.auto.calimero.datapoint.Datapoint;
 import tuwien.auto.calimero.datapoint.DatapointModel;
 import tuwien.auto.calimero.datapoint.StateDP;
 import tuwien.auto.calimero.dptxlator.DPTXlator;
+import tuwien.auto.calimero.dptxlator.DPTXlator2ByteFloat;
+import tuwien.auto.calimero.dptxlator.DPTXlator2ByteUnsigned;
+import tuwien.auto.calimero.dptxlator.DPTXlator3BitControlled;
+import tuwien.auto.calimero.dptxlator.DPTXlator8BitUnsigned;
+import tuwien.auto.calimero.dptxlator.DPTXlatorBoolean;
+import tuwien.auto.calimero.dptxlator.DPTXlatorDate;
+import tuwien.auto.calimero.dptxlator.DPTXlatorSceneNumber;
+import tuwien.auto.calimero.dptxlator.DPTXlatorString;
+import tuwien.auto.calimero.dptxlator.DPTXlatorTime;
 import tuwien.auto.calimero.dptxlator.TranslatorTypes;
 import tuwien.auto.calimero.process.ProcessEvent;
 
@@ -56,12 +64,17 @@ public class KNXEvent {
     private boolean isBoolean = false;
     private boolean isInteger = false;
     private boolean isFloat = false;
+    private boolean isString = false;
+    private boolean returnBoolean;
+    private Integer returnInteger;
+    private Double returnFloat;
+    private String returnString;
     private static final Logger logger = LoggerFactory.getLogger(KNXEvent.class);
 
     private KNXEvent() {
     }
 
-    public KNXEvent(KNXEventEnum evType, ProcessEvent e, DatapointModel<StateDP> datapoints) {
+    public KNXEvent(KNXEventEnum evType, ProcessEvent e, DatapointModel<StateDP> datapoints) throws KNXException {
         this.evType = evType;
         this.ev = e;
         this.ts = LocalDateTime.now();
@@ -94,8 +107,89 @@ public class KNXEvent {
      * 19.yyy = Uhrzeit + Datum
      * 20.yyy = 8-Bit-Nummerierung,z. B. HLK-Modus („Automatik“, „Komfort“, „Stand-by“, „Sparen“, „Schutz“)
          */
-        if (dp.getMainNumber() == 1) {
-            isBoolean = true;
+        GroupAddress dAddr = ev.getDestination();
+        String val = toHex(asdu, "");
+        String desc = datapoints.get(dAddr).getName();
+        logger.warn("DPT: {} before conversion: {} -> {} ({}): [0x{}]", dp.getDPT(), e.getSourceAddr(), dAddr, desc, val);
+        DPTXlator t = TranslatorTypes.createTranslator(0, dp.getDPT());
+        switch (dp.getMainNumber()) {
+            case 1:
+                DPTXlatorBoolean dxb = new DPTXlatorBoolean(dp.getDPT());
+                dxb.setData(asdu);
+                returnString = String.join(" ", dxb.getAllValues());
+                returnBoolean = dxb.getValueBoolean();
+                isBoolean = true;
+                logger.warn("DPT: {} after conversion: {} -> {} ({}): {} {}", dp.getDPT(), e.getSourceAddr(), dAddr, desc, returnBoolean, returnString);
+                break;
+            case 3:
+                DPTXlator3BitControlled dx3b = new DPTXlator3BitControlled(dp.getDPT());
+                dx3b.setData(asdu);
+                returnString = String.join(" ", dx3b.getAllValues());
+                isString = true;
+                logger.warn("DPT: {} after conversion: {} -> {} ({}): {} {} {} {}",
+                        dp.getDPT(), e.getSourceAddr(), dAddr, desc, returnString, dx3b.getControlBit(), dx3b.getStepCode(), dx3b.getIntervals());
+                break;
+            case 5:
+                DPTXlator8BitUnsigned dx8u = new DPTXlator8BitUnsigned(dp.getDPT());
+                dx8u.setData(asdu);
+                Short s = dx8u.getValueUnsigned();
+                returnString = String.join(" ", dx8u.getAllValues());
+                returnInteger = s.intValue();
+                isInteger = true;
+                logger.warn("DPT: {} after conversion: {} -> {} ({}): {} {}", dp.getDPT(), e.getSourceAddr(), dAddr, desc, returnInteger.toString(), returnString);
+                break;
+            case 7:
+                DPTXlator2ByteUnsigned dx2bu = new DPTXlator2ByteUnsigned(dp.getDPT());
+                dx2bu.setData(asdu);
+                returnString = String.join(" ", dx2bu.getAllValues());
+                returnInteger = dx2bu.getValueUnsigned();
+                isInteger = true;
+                logger.warn("DPT: {} after conversion: {} -> {} ({}): {} {}", dp.getDPT(), e.getSourceAddr(), dAddr, desc, returnInteger.toString(), returnString);
+                break;
+            case 9:
+                DPTXlator2ByteFloat dx2bf = new DPTXlator2ByteFloat(dp.getDPT());
+                dx2bf.setData(asdu);
+                returnString = String.join(" ", dx2bf.getAllValues());
+                returnFloat = dx2bf.getNumericValue();
+                isFloat = true;
+                logger.warn("DPT: {} after conversion: {} -> {} ({}): {} {}", dp.getDPT(), e.getSourceAddr(), dAddr, desc, returnFloat.toString(), returnString);
+                break;
+            case 10:
+                DPTXlatorTime dxt = new DPTXlatorTime();
+                dxt.setData(asdu);
+                returnString = "" + dxt.getHour() + ":" + dxt.getMinute() + ":" + dxt.getSecond();
+                isString = true;
+                logger.warn("DPT: {} after conversion: {} -> {} ({}): {}", dp.getDPT(), e.getSourceAddr(), dAddr, desc, returnString);
+                break;
+            case 11:
+                DPTXlatorDate dxd = new DPTXlatorDate();
+                dxd.setData(asdu);
+                returnString = "" + dxd.getYear() + "-" + dxd.getMonth() + "-" + dxd.getDay();
+                isString = true;
+                logger.warn("DPT: {} after conversion: {} -> {} ({}): {}", dp.getDPT(), e.getSourceAddr(), dAddr, desc, returnString);
+                break;
+            case 16:
+                DPTXlatorString dxs = new DPTXlatorString(dp.getDPT());
+                dxs.setData(asdu);
+                returnString = dxs.getValue();
+                isString = true;
+                logger.warn("DPT: {} after conversion: {} -> {} ({}): {}", dp.getDPT(), e.getSourceAddr(), dAddr, desc, returnString);
+                break;
+            case 17:
+                DPTXlatorSceneNumber dxsn = new DPTXlatorSceneNumber(dp.getDPT());
+                dxsn.setData(asdu);
+                Short sn = dxsn.getSceneNumber();
+                returnString = String.join(" ", dxsn.getAllValues());
+                returnInteger = sn.intValue();
+                isInteger = true;
+                logger.warn("DPT: {} after conversion: {} -> {} ({}): {} {}", dp.getDPT(), e.getSourceAddr(), dAddr, desc, returnInteger.toString(), returnString);
+                break;
+            default:
+                returnString = String.join(" ", t.getAllValues());
+                returnFloat = t.getNumericValue();
+                isFloat = true;
+                logger.warn("DPT: {} after conversion: {} -> {} ({}): {} {}", dp.getDPT(), e.getSourceAddr(), dAddr, desc, returnFloat.toString(), returnString);
+                break;
         }
     }
 
@@ -124,38 +218,12 @@ public class KNXEvent {
      * @throws KNXException on failed creation of translator, or translator not
      * available
      */
-    public String asString() throws KNXException {
-        if (isBoolean) {
-            return asdu.toString();
-        } else {
-            final DPTXlator t = TranslatorTypes.createTranslator(0, dp.getDPT());
-            t.setData(asdu);
-            return t.getValue();
-        }
+    public String asString() {
+        return returnString;
     }
 
-    /**
-     * Returns the numeric representation of the first item stored by this
-     * translator, if the DPT value can be represented numerically.
-     *
-     * @return the numeric representation of the value
-     * @throws KNXFormatException if the value cannot be represented numerically
-     */
-    public double getNumericValue() throws KNXFormatException, KNXException {
-        double rv = 0;
-        final DPTXlator xlt = TranslatorTypes.createTranslator(0, dp.getDPT());
-        xlt.setData(asdu);
-        try {
-            rv = xlt.getNumericValue();
-        } catch (Exception e) {
-            IndividualAddress sAddr = ev.getSourceAddr();
-            GroupAddress dAddr = ev.getDestination();
-            String val = toHex(asdu, "");
-            String desc = datapoints.get(dAddr).getName();
-            String dpt = datapoints.get(dAddr).getDPT();
-            logger.warn("{} -> {} ({}): [0x{}], DPT: {}", sAddr, dAddr, desc, val, dpt);
-        }
-        return rv;
+    public double getNumericValue() {
+        return returnFloat;
     }
 
     public boolean isBoolean() throws KNXFormatException, KNXException, Exception {
@@ -170,18 +238,24 @@ public class KNXEvent {
         return isFloat;
     }
 
+    public boolean isString() throws KNXFormatException, KNXException, Exception {
+        return isString;
+    }
+
     public boolean getBooleanValue() throws KNXFormatException, KNXException, Exception {
-        throw new Exception("Not yet implemented");
+        return returnBoolean;
     }
 
     public Integer getIntegerValue() throws KNXFormatException, KNXException, Exception {
-        throw new Exception("Not yet implemented");
+        return returnInteger;
+    }
+
+    public String getStringValue() throws KNXFormatException, KNXException, Exception {
+        return returnString;
     }
 
     public Double getFloatValue() throws KNXFormatException, KNXException, Exception {
-        final DPTXlator t = TranslatorTypes.createTranslator(0, dp.getDPT());
-        t.setData(asdu);
-        return t.getNumericValue();
+        return returnFloat;
     }
 
     public Timestamp getSqlTs() {

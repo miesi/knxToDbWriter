@@ -120,9 +120,9 @@ public class DbWriter implements Runnable {
                             + "ts timestamp(6) NOT NULL DEFAULT current_timestamp(6),"
                             + "src_addr varchar(16) not null,"
                             + "dst_addr varchar(16) not null,"
-                            + "dst_desc varchar(4000),"
+                            + "dst_desc varchar(400),"
                             + "dpt varchar(10) not null,"
-                            + "value double not null,"
+                            + "value varchar(40) not null,"
                             + "key (ts),"
                             + "key (src_addr),"
                             + "key (dst_addr)"
@@ -147,7 +147,7 @@ public class DbWriter implements Runnable {
             insertLog.setString(3, e.getEv().getDestination().toString());
             insertLog.setString(4, datapoints.get(e.getEv().getDestination()).getName());
             insertLog.setString(5, datapoints.get(e.getEv().getDestination()).getDPT());
-            insertLog.setDouble(6, e.getNumericValue());
+            insertLog.setString(6, e.getStringValue());
             insertLog.executeUpdate();
             insertLog.close();
             cleanupLog = conn.prepareStatement("delete from knx_log where ts < date_sub(now(), interval  3 month)");
@@ -161,6 +161,17 @@ public class DbWriter implements Runnable {
     }
 
     private void checkAndCreateDataTable(KNXEvent e) {
+        /*    
+     * 5.yyy = vorzeichenloser 8-Bit-Wert, wie Dimm-Wert (0..100 %), Jalousienposition (0..100 %)
+     * 6.yyy = 8-Bit-2-Komplement, z. B. %
+     * 7.yyy = 2 x vorzeichenloser 8-Bit-Wert, z. B. Impulszähler
+     * 8.yyy = 2 x 8-Bit-2-Komplement, z. B. %
+     * 12.yyy = 4 x vorzeichenloser 8-Bit-Wert,z. B. Impulszähler
+     * 13.yyy = 4 x 8-Bit-2-Komplement, z. B. Impulszähler
+        
+     * 9.yyy = 16-Bit-Gleitkommazahl, z. B. Temperatur
+        * 14.yyy = 32-Bit-Gleitkommazahl, z. B. Temperatur
+         */
         // generate table name
 
         // GA DPT
@@ -170,54 +181,69 @@ public class DbWriter implements Runnable {
         StateDP dp = datapoints.get(ga);
         String dpt = dp.getDPT();
 
-        // filter DPT. Do not record typical on/off events (lights/rollershutter/...)
-        if (dpt.startsWith("2")) {
-            logger.info("ignoring event from {} to GA {} ({}), DPT {}", e.getEv().getSourceAddr().toString(),
-                    e.getEv().getDestination().toString(),
-                    datapoints.get(e.getEv().getDestination()).getName(),
-                    datapoints.get(e.getEv().getDestination()).getDPT());
-            return;
-        }
+        if (dp.getMainNumber() == 5
+                || dp.getMainNumber() == 6
+                || dp.getMainNumber() == 7
+                || dp.getMainNumber() == 8
+                || dp.getMainNumber() == 9
+                || dp.getMainNumber() == 12
+                || dp.getMainNumber() == 13
+                || dp.getMainNumber() == 14) {
 
-        String tableName = "data_" + ga.toString().replace('/', '_') + "_" + dpt.replace('.', '_');
+            String tableName = "data_" + ga.toString().replace('/', '_') + "_" + dpt.replace('.', '_');
 
-        // select 1 from table name
-        try {
-            checkTableExists = conn.prepareStatement("select 1 from " + tableName);
-            checkTableExists.execute();
-            ResultSet rs = checkTableExists.getResultSet();
-            rs.close();
-            checkTableExists.close();
-        } catch (Exception ex) {
-            // -> Exception -> create table
-            logger.info("Table {} does not exist, creating", tableName);
+            // select 1 from table name
             try {
-                Connection con = DriverManager.getConnection(jdbcUrl, user, password);
-                createTable = con.prepareStatement("create table " + tableName + " ("
-                        + "ts timestamp(6) NOT NULL DEFAULT current_timestamp(6),"
-                        + "value double not null,"
-                        + "primary key (ts)"
-                        + ")");
-                createTable.executeUpdate();
-                createTable.close();
-                con.close();
-                logger.info("created table {}", tableName);
-            } catch (Exception exc) {
-                logger.warn("unexpected exception during create table {}: {}", tableName, exc.getMessage());
-                exc.printStackTrace();
+                checkTableExists = conn.prepareStatement("select 1 from " + tableName);
+                checkTableExists.execute();
+                ResultSet rs = checkTableExists.getResultSet();
+                rs.close();
+                checkTableExists.close();
+            } catch (Exception ex) {
+                // -> Exception -> create table
+                logger.info("Table {} does not exist, creating", tableName);
+                try {
+                    Connection con = DriverManager.getConnection(jdbcUrl, user, password);
+                    if (e.isFloat()) {
+                        createTable = con.prepareStatement("create table " + tableName + " ("
+                                + "ts timestamp(6) NOT NULL DEFAULT current_timestamp(6),"
+                                + "value double not null,"
+                                + "primary key (ts)"
+                                + ")");
+                    }
+                    if (e.isInteger()) {
+                        createTable = con.prepareStatement("create table " + tableName + " ("
+                                + "ts timestamp(6) NOT NULL DEFAULT current_timestamp(6),"
+                                + "value integer not null,"
+                                + "primary key (ts)"
+                                + ")");
+                    }
+                    createTable.executeUpdate();
+                    createTable.close();
+                    con.close();
+                    logger.info("created table {}", tableName);
+                } catch (Exception exc) {
+                    logger.warn("unexpected exception during create table {}: {}", tableName, exc.getMessage());
+                    exc.printStackTrace();
+                }
             }
-        }
 
-        // -> do insert
-        try {
-            insertData = conn.prepareStatement("insert into " + tableName + " (ts,value) values (?,?)");
-            insertData.setTimestamp(1, e.getSqlTs());
-            insertData.setDouble(2, e.getNumericValue());
-            insertData.executeUpdate();
-            insertData.close();
-        } catch (Exception ex) {
-            logger.warn("unexpected exception during insert data into {}: {}", tableName, ex.getMessage());
-            ex.printStackTrace();
+            // -> do insert
+            try {
+                insertData = conn.prepareStatement("insert into " + tableName + " (ts,value) values (?,?)");
+                insertData.setTimestamp(1, e.getSqlTs());
+                if (e.isFloat()) {
+                    insertData.setDouble(2, e.getNumericValue());
+                }
+                if (e.isInteger()) {
+                    insertData.setInt(2, e.getIntegerValue());
+                }
+                insertData.executeUpdate();
+                insertData.close();
+            } catch (Exception ex) {
+                logger.warn("unexpected exception during insert data into {}: {}", tableName, ex.getMessage());
+                ex.printStackTrace();
+            }
         }
     }
 

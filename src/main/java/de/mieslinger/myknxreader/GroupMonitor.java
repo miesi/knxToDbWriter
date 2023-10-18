@@ -128,7 +128,7 @@ public class GroupMonitor implements ProcessListener, Runnable {
             } else {
                 logger.warn("Message from {} to {} missing in datapoint map, ignoring", e.getSourceAddr(), e.getDestination());
             }
-        } catch (final RuntimeException ex) {
+        } catch (final Exception ex) {
             logger.warn("KNX Monitor: ", ex);
         }
     }
