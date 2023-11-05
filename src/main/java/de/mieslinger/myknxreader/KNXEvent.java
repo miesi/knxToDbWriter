@@ -23,6 +23,7 @@
  */
 package de.mieslinger.myknxreader;
 
+import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -39,6 +40,9 @@ import tuwien.auto.calimero.dptxlator.DPTXlator;
 import tuwien.auto.calimero.dptxlator.DPTXlator2ByteFloat;
 import tuwien.auto.calimero.dptxlator.DPTXlator2ByteUnsigned;
 import tuwien.auto.calimero.dptxlator.DPTXlator3BitControlled;
+import tuwien.auto.calimero.dptxlator.DPTXlator4ByteFloat;
+import tuwien.auto.calimero.dptxlator.DPTXlator4ByteSigned;
+import tuwien.auto.calimero.dptxlator.DPTXlator4ByteUnsigned;
 import tuwien.auto.calimero.dptxlator.DPTXlator8BitUnsigned;
 import tuwien.auto.calimero.dptxlator.DPTXlatorBoolean;
 import tuwien.auto.calimero.dptxlator.DPTXlatorDate;
@@ -168,6 +172,32 @@ public class KNXEvent {
                 isString = true;
                 logger.warn("DPT: {} after conversion: {} -> {} ({}): {}", dp.getDPT(), e.getSourceAddr(), dAddr, desc, returnString);
                 break;
+            case 12:
+                DPTXlator4ByteUnsigned dx4bu = new DPTXlator4ByteUnsigned(dp.getDPT());
+                dx4bu.setData(asdu);
+                BigDecimal bdu = new BigDecimal(dx4bu.getValueUnsigned());
+                returnInteger = bdu.intValueExact();
+                returnString = String.join(" ", dx4bu.getAllValues());
+                isInteger = true;
+                logger.warn("DPT: {} after conversion: {} -> {} ({}): {}", dp.getDPT(), e.getSourceAddr(), dAddr, desc, returnInteger.toString());
+                break;
+            case 13:
+                DPTXlator4ByteSigned dx4bs = new DPTXlator4ByteSigned(dp.getDPT());
+                dx4bs.setData(asdu);
+                BigDecimal bds = new BigDecimal(dx4bs.getValueSigned());
+                returnInteger = bds.intValueExact();
+                returnString = String.join(" ", dx4bs.getAllValues());
+                isInteger = true;
+                logger.warn("DPT: {} after conversion: {} -> {} ({}): {}", dp.getDPT(), e.getSourceAddr(), dAddr, desc, returnInteger.toString());
+                break;
+            case 14:
+                DPTXlator4ByteFloat dx4bf = new DPTXlator4ByteFloat(dp.getDPT());
+                dx4bf.setData(asdu);
+                returnFloat = dx4bf.getNumericValue();
+                returnString = String.join(" ", dx4bf.getAllValues());
+                isFloat = true;
+                logger.warn("DPT: {} after conversion: {} -> {} ({}): {}", dp.getDPT(), e.getSourceAddr(), dAddr, desc, returnFloat.toString());
+                break;
             case 16:
                 DPTXlatorString dxs = new DPTXlatorString(dp.getDPT());
                 dxs.setData(asdu);
@@ -183,12 +213,6 @@ public class KNXEvent {
                 returnInteger = sn.intValue();
                 isInteger = true;
                 logger.warn("DPT: {} after conversion: {} -> {} ({}): {} {}", dp.getDPT(), e.getSourceAddr(), dAddr, desc, returnInteger.toString(), returnString);
-                break;
-            default:
-                returnString = String.join(" ", t.getAllValues());
-                returnFloat = t.getNumericValue();
-                isFloat = true;
-                logger.warn("DPT: {} after conversion: {} -> {} ({}): {} {}", dp.getDPT(), e.getSourceAddr(), dAddr, desc, returnFloat.toString(), returnString);
                 break;
         }
     }
